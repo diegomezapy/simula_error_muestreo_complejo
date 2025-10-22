@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Varianza en Muestras Complejas: Laboratorio Interactivo</title>
+
+  <!-- Bootstrap CSS + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet"/>
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"/>
+
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --card-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      --bs-primary: #6c63ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color:#f8f9fa;
+      overflow-x: hidden;
+    }
+    .main-container{height:calc(100vh - 96px); display:flex; flex-direction:column;}
+    .header-section{background:var(--primary-gradient); color:#fff; padding:1rem 0; box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    .content-wrapper{flex:1; display:flex; gap:1rem; padding:1rem; overflow-y: auto; overflow-x: hidden;}
+    .control-panel{flex:0 0 360px; overflow-y: auto; max-height: calc(100vh - 150px);}
+    .results-panel{flex:1; display:flex; flex-direction:column; gap:1rem; overflow-y: auto; max-height: calc(100vh - 150px);}
+    .card{box-shadow:var(--card-shadow); border:none; margin-bottom: 1rem;}
+    .card-header{background-color:var(--bs-primary); color:#fff; font-weight:600}
+    .table-responsive{max-height:260px; overflow:auto; font-size:.9rem}
+    .chart-container{position:relative; height:220px; width:100%}
+    .comparison-chart-container{height:280px}
+    .confidence-interval-chart{height:240px}
+    .viz-grid-item{display:flex; flex-direction:column}
+    .viz-grid-item h6{font-size:.95rem; margin-bottom:.5rem}
+    .strata-indicator{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px}
+    .results-box{background:#eef2ff; border:1px solid #c7d2fe; padding:1rem; border-radius:.375rem}
+    .metrics-grid{display:grid; grid-template-columns:1fr 1fr; gap:1rem}
+    .small-muted{font-size:.85rem; color:#6c757d}
+    .form-range::-webkit-slider-thumb{background:var(--bs-primary)}
+    .form-range::-moz-range-thumb{background:var(--bs-primary)}
+    .nav-tabs .nav-link{font-weight:600}
+    .alert-compact{padding:.5rem .75rem; margin-bottom:0}
+  </style>
+</head>
+<body>
+<header class="header-section">
+  <div class="container-fluid text-center">
+    <h1 class="h4 mb-0">Laboratorio de Varianza en Muestras Complejas</h1>
+    <p class="mb-0">Todos los métodos, siempre comparados y consistentes</p>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="container-fluid px-3">
+  <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-estratos" data-bs-toggle="tab" data-bs-target="#panel-estratos" type="button" role="tab" aria-controls="panel-estratos" aria-selected="true">
+        <i class="bi bi-diagram-3"></i> Estratificado (sin PSU)
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-psu" data-bs-toggle="tab" data-bs-target="#panel-psu" type="button" role="tab" aria-controls="panel-psu" aria-selected="false">
+        <i class="bi bi-diagram-2"></i> Conglomerados (PSU) y BRR
+      </button>
+    </li>
+  </ul>
+</div>
+
+<main class="main-container">
+
+  <div class="tab-content h-100">
+    <!-- ===================== PESTAÑA 1: ESTRATIFICADO ===================== -->
+    <div class="tab-pane fade show active h-100" id="panel-estratos" role="tabpanel" aria-labelledby="tab-estratos">
+      <div class="content-wrapper container-fluid">
+        <!-- Panel de control -->
+        <aside class="control-panel">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-sliders"></i> Parámetros</div>
+            <div class="card-body">
+              <form id="controlForm">
+                <div class="mb-3">
+                  <label class="form-label">Tamaño muestral (n): <span id="sampleSizeValue" class="fw-bold text-primary">100</span></label>
+                  <input type="range" class="form-range" id="sampleSize" value="100" min="30" max="500"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Número de estratos: <span id="numStrataValue" class="fw-bold text-primary">3</span></label>
+                  <input type="range" class="form-range" id="numStrata" value="3" min="1" max="5"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Media poblacional (μ): <span id="populationMeanValue" class="fw-bold text-primary">65</span></label>
+                  <input type="range" class="form-range" id="populationMean" value="65" min="40" max="90" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Desvío estándar poblacional (σ): <span id="populationStdDevValue" class="fw-bold text-primary">15</span></label>
+                  <input type="range" class="form-range" id="populationStdDev" value="15" min="5" max="25" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Efecto de estrato: <span id="stratumEffectValue" class="fw-bold text-primary">15</span></label>
+                  <input type="range" class="form-range" id="stratumEffect" value="15" min="5" max="30" step="1"/>
+                </div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="useWeights" checked/>
+                  <label class="form-check-label" for="useWeights">Usar pesos de muestreo</label>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Nivel de confianza: <span id="confidenceLevelValue" class="fw-bold text-primary">95%</span></label>
+                  <input type="range" class="form-range" id="confidenceLevel" value="95" min="80" max="99" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Remuestreos (Bootstrap y Jackknife): <span id="numResamplesValue" class="fw-bold text-primary">500</span></label>
+                  <input type="range" class="form-range" id="numResamples" value="500" min="100" max="2000" step="100"/>
+                </div>
+                <button type="button" class="btn btn-success w-100" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refrescar</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle"></i> Teoría breve</div>
+            <div class="card-body small">
+              <p><strong>Simple:</strong> muestra aleatoria simple, $$\mathrm{Var}(\bar y)=\frac{s^2}{n}$$.</p>
+              <p><strong>Taylor:</strong> linealización por diseño, $$\mathrm{Var}(\bar y_w)\approx \sum_h (N_h/N)^2\,\mathrm{Var}_h(\bar y_h)$$.</p>
+              <p><strong>Bootstrap/Jackknife:</strong> estimación por remuestreo de la distribución de $$\bar y$$.</p>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Panel de resultados -->
+        <section class="results-panel">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-calculator"></i> Resultados comparativos por método</div>
+            <div class="card-body">
+              <div class="metrics-grid">
+                <div>
+                  <h6 class="mb-2">Métricas por método</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead>
+                        <tr>
+                          <th>Método</th><th>Media</th><th>EE</th><th>CV (%)</th><th>IC</th><th>Cobertura</th>
+                        </tr>
+                      </thead>
+                      <tbody id="advancedMetricsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h6 class="mb-2">Comparación de métricas</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead>
+                        <tr>
+                          <th>Métrica</th><th>Simple</th><th>Taylor</th><th>Bootstrap</th><th>Jackknife</th>
+                        </tr>
+                      </thead>
+                      <tbody id="comparisonMetricsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-bar-chart"></i> Intervalos de confianza y eficiencia</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-lg-8">
+                  <div class="chart-container confidence-interval-chart">
+                    <canvas id="confidenceIntervalChart"></canvas>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <h6>Eficiencia relativa (↓ EE mejor)</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead><tr><th>Método</th><th>EE</th><th>Eficiencia</th></tr></thead>
+                      <tbody id="efficiencyTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div class="small-muted mt-2">La línea horizontal marca la media poblacional configurada.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-graph-up"></i> CDF comparativa de la media</div>
+            <div class="card-body">
+              <div class="comparison-chart-container">
+                <canvas id="comparisonCdfChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-diagram-3"></i> Visualizaciones</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Datos de muestra</h6>
+                  <div class="table-responsive flex-grow-1">
+                    <table class="table table-striped table-sm" id="sampleTable">
+                      <thead><tr><th>ID</th><th>y</th><th>Estrato</th><th>Peso</th></tr></thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>CDF observada vs teórica</h6>
+                  <div class="chart-container"><canvas id="cdfChart"></canvas></div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Histograma de la variable</h6>
+                  <div class="chart-container"><canvas id="dataHistogram"></canvas></div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Remuestreo: Bootstrap</h6>
+                  <div class="chart-container"><canvas id="resampleChartBootstrap"></canvas></div>
+                  <h6 class="mt-3">Remuestreo: Jackknife</h6>
+                  <div class="chart-container"><canvas id="resampleChartJackknife"></canvas></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ===================== PESTAÑA 2: PSU + BRR ===================== -->
+    <div class="tab-pane fade h-100" id="panel-psu" role="tabpanel" aria-labelledby="tab-psu">
+      <div class="content-wrapper container-fluid">
+        <!-- Panel de control PSU -->
+        <aside class="control-panel">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-sliders"></i> Parámetros PSU</div>
+            <div class="card-body">
+              <form id="controlFormPSU">
+                <div class="mb-3">
+                  <label class="form-label">Estratos: <span id="psuNumStrataValue" class="fw-bold text-primary">3</span></label>
+                  <input type="range" class="form-range" id="psuNumStrata" value="3" min="1" max="6"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">PSUs por estrato: <span id="psuPerStratumValue" class="fw-bold text-primary">2</span></label>
+                  <input type="range" class="form-range" id="psuPerStratum" value="2" min="2" max="6"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Tamaño medio por PSU: <span id="psuClusterSizeValue" class="fw-bold text-primary">30</span></label>
+                  <input type="range" class="form-range" id="psuClusterSize" value="30" min="10" max="150" step="5"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">ρ intra-clase (ICC): <span id="psuRhoValue" class="fw-bold text-primary">0.10</span></label>
+                  <input type="range" class="form-range" id="psuRho" value="0.10" min="0" max="0.40" step="0.01"/>
+                </div>
+                <hr>
+                <div class="mb-3">
+                  <label class="form-label">Media poblacional (μ): <span id="psuMuValue" class="fw-bold text-primary">65</span></label>
+                  <input type="range" class="form-range" id="psuMu" value="65" min="40" max="90" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Desvío poblacional (σ): <span id="psuSigmaValue" class="fw-bold text-primary">15</span></label>
+                  <input type="range" class="form-range" id="psuSigma" value="15" min="5" max="25" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Efecto de estrato: <span id="psuStratumEffectValue" class="fw-bold text-primary">15</span></label>
+                  <input type="range" class="form-range" id="psuStratumEffect" value="15" min="0" max="30" step="1"/>
+                </div>
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="psuUseWeights" checked/>
+                  <label class="form-check-label" for="psuUseWeights">Usar pesos de muestreo</label>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Nivel de confianza: <span id="psuCLValue" class="fw-bold text-primary">95%</span></label>
+                  <input type="range" class="form-range" id="psuCL" value="95" min="80" max="99" step="1"/>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Remuestreos Bootstrap-PSU: <span id="psuBValue" class="fw-bold text-primary">400</span></label>
+                  <input type="range" class="form-range" id="psuB" value="400" min="100" max="2000" step="100"/>
+                </div>
+                <button type="button" class="btn btn-success w-100" id="psuRefreshBtn"><i class="bi bi-arrow-clockwise"></i> Refrescar PSU</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle"></i> Notas PSU & BRR</div>
+            <div class="card-body small">
+              <div class="alert alert-warning alert-compact" id="brrReqNote">
+                BRR estándar requiere <strong>exactamente 2 PSUs por estrato</strong>. Si no se cumple, se omite BRR.
+              </div>
+              <p>Simulación: varianza intra-PSU \( \sigma_w^2=\sigma^2(1-\rho) \), entre-PSU \( \sigma_b^2=\sigma^2\rho \).  
+              Para BRR se usa una matriz de Hadamard \(H_{2^k}\) con filas asignadas a estratos y columnas a replicados.</p>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Panel de resultados PSU -->
+        <section class="results-panel">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-calculator"></i> Resultados PSU por método</div>
+            <div class="card-body">
+              <div class="metrics-grid">
+                <div>
+                  <h6 class="mb-2">Métricas por método (PSU)</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead>
+                        <tr>
+                          <th>Método</th><th>Media</th><th>EE</th><th>CV (%)</th><th>IC</th><th>Cobertura</th>
+                        </tr>
+                      </thead>
+                      <tbody id="psuAdvancedMetricsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h6 class="mb-2">Comparación de métricas (PSU)</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead>
+                        <tr>
+                          <th>Métrica</th><th>Simple</th><th>Taylor-PSU</th><th>Bootstrap-PSU</th><th>BRR</th>
+                        </tr>
+                      </thead>
+                      <tbody id="psuComparisonMetricsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div id="brrOmittedMsg" class="mt-2 small text-danger d-none">BRR omitido por no cumplirse 2 PSUs por estrato.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-bar-chart"></i> Intervalos de confianza y eficiencia (PSU)</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-lg-8">
+                  <div class="chart-container confidence-interval-chart">
+                    <canvas id="psuConfidenceIntervalChart"></canvas>
+                  </div>
+                </div>
+                <div class="col-lg-4">
+                  <h6>Eficiencia relativa (↓ EE mejor)</h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                      <thead><tr><th>Método</th><th>EE</th><th>Eficiencia</th></tr></thead>
+                      <tbody id="psuEfficiencyTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div class="small-muted mt-2">La línea horizontal marca la media poblacional configurada.</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-graph-up"></i> CDF comparativa de la media (PSU)</div>
+            <div class="card-body">
+              <div class="comparison-chart-container">
+                <canvas id="psuComparisonCdfChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><i class="bi bi-diagram-3"></i> Visualizaciones (PSU)</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Muestra por PSU</h6>
+                  <div class="table-responsive flex-grow-1">
+                    <table class="table table-striped table-sm" id="psuSampleTable">
+                      <thead><tr><th>ID</th><th>Estrato</th><th>PSU</th><th>y</th><th>Peso</th></tr></thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Histograma de y (PSU)</h6>
+                  <div class="chart-container"><canvas id="psuDataHistogram"></canvas></div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Remuestreo Bootstrap-PSU</h6>
+                  <div class="chart-container"><canvas id="psuResampleChartBootstrap"></canvas></div>
+                </div>
+                <div class="col-md-6 viz-grid-item">
+                  <h6>Distribución de replicados BRR</h6>
+                  <div class="chart-container"><canvas id="psuBRRChart"></canvas></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- KaTeX -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  renderMathInElement(document.body, {
+    delimiters:[{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}]
+  });
+
+  // Estado global para gráficos
+  const charts = {
+    estratos: {
+      dataHistogram: null,
+      cdf: null,
+      comparisonCdf: null,
+      confidenceInterval: null,
+      resampleBootstrap: null,
+      resampleJackknife: null
+    },
+    psu: {
+      dataHistogram: null,
+      comparisonCdf: null,
+      confidenceInterval: null,
+      resampleBootstrap: null,
+      brr: null
+    }
+  };
+
+  // Colores
+  const methodColors = {
+    simple: 'rgb(255, 99, 132)',
+    taylor: 'rgb(54, 162, 235)',
+    bootstrap: 'rgb(255, 205, 86)',
+    jackknife: 'rgb(75, 192, 192)',
+    brr: 'rgb(153, 102, 255)'
+  };
+  const methodNames = { 
+    simple:'Simple', 
+    taylor:'Taylor', 
+    bootstrap:'Bootstrap', 
+    jackknife:'Jackknife', 
+    brr:'BRR',
+    'taylor-psu': 'Taylor-PSU',
+    'bootstrap-psu': 'Bootstrap-PSU'
+  };
+  const stratumColors = ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#8BC34A'];
+
+  // ---------- Controles Pestaña 1 ----------
+  const sampleSizeSlider = document.getElementById('sampleSize');
+  const numStrataSlider = document.getElementById('numStrata');
+  const populationMeanSlider = document.getElementById('populationMean');
+  const populationStdDevSlider = document.getElementById('populationStdDev');
+  const stratumEffectSlider = document.getElementById('stratumEffect');
+  const confidenceLevelSlider = document.getElementById('confidenceLevel');
+  const numResamplesSlider = document.getElementById('numResamples');
+  const useWeightsCheckbox = document.getElementById('useWeights');
+  const sampleTableBody = document.querySelector('#sampleTable tbody');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  // ---------- Controles Pestaña 2 (PSU) ----------
+  const psuNumStrata = document.getElementById('psuNumStrata');
+  const psuPerStratum = document.getElementById('psuPerStratum');
+  const psuClusterSize = document.getElementById('psuClusterSize');
+  const psuRho = document.getElementById('psuRho');
+  const psuMu = document.getElementById('psuMu');
+  const psuSigma = document.getElementById('psuSigma');
+  const psuStratumEffect = document.getElementById('psuStratumEffect');
+  const psuUseWeights = document.getElementById('psuUseWeights');
+  const psuCL = document.getElementById('psuCL');
+  const psuB = document.getElementById('psuB');
+  const psuRefreshBtn = document.getElementById('psuRefreshBtn');
+  const psuSampleTableBody = document.querySelector('#psuSampleTable tbody');
+
+  const brrReqNote = document.getElementById('brrReqNote');
+  const brrOmittedMsg = document.getElementById('brrOmittedMsg');
+
+  // Slider labels Pestaña 1
+  function updateSliderLabels(){
+    document.getElementById('sampleSizeValue').textContent = sampleSizeSlider.value;
+    document.getElementById('numStrataValue').textContent = numStrataSlider.value;
+    document.getElementById('populationMeanValue').textContent = populationMeanSlider.value;
+    document.getElementById('populationStdDevValue').textContent = populationStdDevSlider.value;
+    document.getElementById('stratumEffectValue').textContent = stratumEffectSlider.value;
+    document.getElementById('confidenceLevelValue').textContent = confidenceLevelSlider.value + '%';
+    document.getElementById('numResamplesValue').textContent = numResamplesSlider.value;
+  }
+  // Slider labels Pestaña 2
+  function updatePSULabels(){
+    document.getElementById('psuNumStrataValue').textContent = psuNumStrata.value;
+    document.getElementById('psuPerStratumValue').textContent = psuPerStratum.value;
+    document.getElementById('psuClusterSizeValue').textContent = psuClusterSize.value;
+    document.getElementById('psuRhoValue').textContent = parseFloat(psuRho.value).toFixed(2);
+    document.getElementById('psuMuValue').textContent = psuMu.value;
+    document.getElementById('psuSigmaValue').textContent = psuSigma.value;
+    document.getElementById('psuStratumEffectValue').textContent = psuStratumEffect.value;
+    document.getElementById('psuCLValue').textContent = psuCL.value + '%';
+    document.getElementById('psuBValue').textContent = psuB.value;
+  }
+
+  // Eventos
+  [sampleSizeSlider,numStrataSlider,populationMeanSlider,populationStdDevSlider,
+   stratumEffectSlider,confidenceLevelSlider,numResamplesSlider].forEach(el => el.addEventListener('input', ()=>{
+     updateSliderLabels(); 
+     setTimeout(generateAndRenderEstratos, 100);
+   }));
+  useWeightsCheckbox.addEventListener('change', () => setTimeout(generateAndRenderEstratos, 100));
+  refreshBtn.addEventListener('click', generateAndRenderEstratos);
+
+  [psuNumStrata,psuPerStratum,psuClusterSize,psuRho,psuMu,psuSigma,psuStratumEffect,
+   psuCL,psuB].forEach(el => el.addEventListener('input', ()=>{
+     updatePSULabels(); 
+     setTimeout(generateAndRenderPSU, 100);
+   }));
+  psuUseWeights.addEventListener('change', () => setTimeout(generateAndRenderPSU, 100));
+  psuRefreshBtn.addEventListener('click', generateAndRenderPSU);
+
+  // Utilidades estadísticas
+  function normalRandom(mean, sd){
+    let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random();
+    const z=Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); return z*sd + mean;
+  }
+  function normalCDF(x, mean, sd){
+    const erf=(x)=>{
+      const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+      const sign = x<0 ? -1 : 1; x=Math.abs(x)/Math.sqrt(2);
+      const t=1/(1+p*x);
+      const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+      return sign*y;
+    };
+    return 0.5*(1+erf((x-mean)/(sd*Math.sqrt(2))));
+  }
+  function approxZ(conf){
+    const map = {80:1.282,85:1.440,90:1.645,95:1.960,99:2.576};
+    const keys = Object.keys(map).map(Number);
+    let best=80, d=1e9;
+    for(const k of keys){ const dd=Math.abs(k-conf); if(dd<d){d=dd; best=k;}}
+    return map[best];
+  }
+  function createHistogramBins(values, bins=15){
+    const vals = values.slice();
+    const min=Math.min(...vals), max=Math.max(...vals);
+    const w = (max-min)/bins || 1;
+    const counts = Array(bins).fill(0), labels=[];
+    for(let i=0;i<bins;i++){
+      const a=min+i*w, b=a+w; labels.push(`${a.toFixed(1)}–${b.toFixed(1)}`);
+    }
+    for(const v of vals){
+      const j = Math.min(Math.floor((v-min)/w), bins-1);
+      counts[j]++;
+    }
+    return {labels,counts};
+  }
+
+  // ==================== PESTAÑA 1: generación, cálculo y render ====================
+  function generateSampleEstratos(params){
+    const data=[];
+    const perStratum = Math.floor(params.n/params.numStrata);
+    const popByStrataMap = {
+      1:[10000],
+      2:[4000,6000],
+      3:[2000,3000,5000],
+      4:[1500,2500,3000,3000],
+      5:[1000,2000,2500,2500,2000]
+    };
+    const pops = popByStrataMap[params.numStrata] || popByStrataMap[3];
+    for(let s=0;s<params.numStrata;s++){
+      const Nh = pops[s];
+      const nh = (s===params.numStrata-1) ? params.n - perStratum*(params.numStrata-1) : perStratum;
+      const mu_h = params.populationMean + (s - (params.numStrata-1)/2)*params.stratumEffect;
+      for(let i=0;i<nh;i++){
+        const y = normalRandom(mu_h, params.populationStdDev);
+        const psel = nh/Nh;
+        const w = params.useWeights ? 1/psel : 1.0;
+        data.push({id:data.length+1, y, stratum:s+1, weight:w, stratumPopulation:Nh});
+      }
+    }
+    return data;
+  }
+
+  function computeAllEstratos(data, params){
+    const n = data.length, z = approxZ(params.confidenceLevel);
+
+    // Simple
+    const mean_simple = data.reduce((a,d)=>a+d.y,0)/n;
+    const ss_simple = data.reduce((a,d)=>a+Math.pow(d.y-mean_simple,2),0);
+    const varbar_simple = ss_simple/(n*(n-1));
+    const se_simple = Math.sqrt(varbar_simple);
+    const ci_simple = {lower: mean_simple - z*se_simple, upper: mean_simple + z*se_simple};
+    const cv_simple = (se_simple/mean_simple)*100;
+
+    // Taylor (estratos + pesos)
+    const totalW = data.reduce((a,d)=>a+d.weight,0);
+    const mean_taylor = data.reduce((a,d)=>a+d.y*d.weight,0)/totalW;
+    const byH = new Map();
+    data.forEach(d=>{ if(!byH.has(d.stratum)) byH.set(d.stratum, []); byH.get(d.stratum).push(d);});
+    let varbar_taylor = 0;
+    for(const [h, arr] of byH.entries()){
+      const Wh = arr.reduce((a,d)=>a+d.weight,0);
+      const yhbar = arr.reduce((a,d)=>a+d.y*d.weight,0)/Wh;
+      const s2h_num = arr.reduce((a,d)=> a + d.weight*Math.pow(d.y - yhbar,2), 0);
+      const s2h = s2h_num/Math.max(Wh-1,1);
+      const fpc = 1 - (arr.length/arr[0].stratumPopulation);
+      const Sh = (Wh/totalW);
+      varbar_taylor += Math.pow(Sh,2) * fpc * (s2h/arr.length);
+    }
+    const se_taylor = Math.sqrt(varbar_taylor);
+    const ci_taylor = {lower: mean_taylor - z*se_taylor, upper: mean_taylor + z*se_taylor};
+    const cv_taylor = (se_taylor/mean_taylor)*100;
+
+    // Bootstrap
+    const B = params.numResamples;
+    const bootMeans = new Array(B);
+    for(let b=0;b<B;b++){
+      let sum=0, sumw=0;
+      for(let j=0;j<n;j++){
+        const d = data[Math.floor(Math.random()*n)];
+        if(params.useWeights){ sum += d.y*d.weight; sumw += d.weight; }
+        else { sum += d.y; }
+      }
+      bootMeans[b]= params.useWeights ? sum/sumw : sum/n;
+    }
+    const mean_boot = bootMeans.reduce((a,m)=>a+m,0)/B;
+    const var_boot = bootMeans.reduce((a,m)=>a+Math.pow(m-mean_boot,2),0)/(B-1);
+    const se_boot = Math.sqrt(var_boot);
+    const ci_boot = {lower: mean_boot - z*se_boot, upper: mean_boot + z*se_boot};
+    const cv_boot = (se_boot/mean_boot)*100;
+
+    // Jackknife
+    const jkMeans = new Array(n);
+    for(let i=0;i<n;i++){
+      let sum=0, sumw=0, m = n-1;
+      for(let j=0;j<n;j++){
+        if(j===i) continue;
+        const d=data[j];
+        if(params.useWeights){ sum += d.y*d.weight; sumw += d.weight; }
+        else { sum += d.y; }
+      }
+      jkMeans[i] = params.useWeights ? sum/sumw : sum/m;
+    }
+    const mean_full = params.useWeights ? data.reduce((a,d)=>a+d.y*d.weight,0)/data.reduce((a,d)=>a+d.weight,0)
+                                        : data.reduce((a,d)=>a+d.y,0)/n;
+    const var_jk = (n-1)/n * jkMeans.reduce((a,m)=>a+Math.pow(m-mean_full,2),0);
+    const se_jk = Math.sqrt(var_jk);
+    const ci_jk = {lower: mean_full - z*se_jk, upper: mean_full + z*se_jk};
+    const cv_jk = (se_jk/mean_full)*100;
+
+    return {
+      simple:   {mean:mean_simple,   variance:varbar_simple,   stdError:se_simple,   confidenceInterval:ci_simple,   cv:cv_simple,   resampleMeans:[]},
+      taylor:   {mean:mean_taylor,   variance:varbar_taylor,   stdError:se_taylor,   confidenceInterval:ci_taylor,   cv:cv_taylor,   resampleMeans:[]},
+      bootstrap:{mean:mean_boot,     variance:var_boot,        stdError:se_boot,     confidenceInterval:ci_boot,     cv:cv_boot,     resampleMeans:bootMeans},
+      jackknife:{mean:mean_full,     variance:var_jk,          stdError:se_jk,       confidenceInterval:ci_jk,       cv:cv_jk,       resampleMeans:jkMeans}
+    };
+  }
+
+  // Render helpers Pestaña 1
+  function renderSampleTable(data){
+    sampleTableBody.innerHTML='';
+    for(const r of data.slice(0,20)){
+      const c = stratumColors[r.stratum-1];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id}</td><td>${r.y.toFixed(2)}</td>
+        <td><span class="strata-indicator" style="background:${c}"></span>${r.stratum}</td>
+        <td>${r.weight.toFixed(2)}</td>`;
+      sampleTableBody.appendChild(tr);
+    }
+  }
+  
+  function renderDataHistogram(data){
+    const ctx = document.getElementById('dataHistogram');
+    if(!ctx) return;
+    
+    // Destruir gráfico anterior de forma segura
+    if(charts.estratos.dataHistogram) {
+      try {
+        charts.estratos.dataHistogram.destroy();
+      } catch(e) {
+        console.log("Error al destruir gráfico anterior:", e);
+      }
+      charts.estratos.dataHistogram = null;
+    }
+    
+    const vals = data.map(d=>d.y);
+    const H = createHistogramBins(vals, 15);
+    
+    // Limpiar el canvas
+    ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    
+    charts.estratos.dataHistogram = new Chart(ctx,{
+      type:'bar',
+      data:{labels:H.labels, datasets:[{label:'Frecuencia', data:H.counts, backgroundColor:'rgba(54, 162, 235, 0.7)'}]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true, title:{display:true,text:'Frecuencia'}},
+                x:{title:{display:true,text:'Rango de valores'}}}
+      }
+    });
+  }
+  
+  function renderCDFSampleVsTheoretical(data){
+    const ctx = document.getElementById('cdfChart');
+    if(!ctx) return;
+    
+    // Destruir gráfico anterior de forma segura
+    if(charts.estratos.cdf) {
+      try {
+        charts.estratos.cdf.destroy();
+      } catch(e) {
+        console.log("Error al destruir gráfico CDF:", e);
+      }
+      charts.estratos.cdf = null;
+    }
+    
+    const sorted = data.map(d=>d.y).sort((a,b)=>a-b);
+    const n = sorted.length;
+    const emp = sorted.map((v,i)=>({x:v,y:(i+1)/n}));
+    const mean = sorted.reduce((a,v)=>a+v,0)/n;
+    const varS = sorted.reduce((a,v)=>a+Math.pow(v-mean,2),0)/(n-1);
+    const sd = Math.sqrt(varS);
+    const xmin = Math.min(...sorted), xmax=Math.max(...sorted), step=(xmax-xmin)/100 || 1;
+    const theo=[]; for(let x=xmin; x<=xmax; x+=step){ theo.push({x,y:normalCDF(x,mean,sd)}); }
+    
+    // Limpiar el canvas
+    ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    
+    charts.estratos.cdf = new Chart(ctx,{
+      type:'line',
+      data:{datasets:[
+        {label:'Observada (muestra)', data:emp, borderColor:'rgba(75,192,192,1)', pointRadius:0, stepped:true},
+        {label:'Teórica (Normal)', data:theo, borderColor:'rgba(255,99,132,1)', pointRadius:0}
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        scales:{x:{type:'linear', title:{display:true,text:'y'}},
+                y:{min:0, max:1.05, title:{display:true,text:'F(y)'}}},
+        plugins:{legend:{position:'top'}}
+      }
+    });
+  }
+  
+  function renderComparisonCDF(allResults, canvasId, chartRef){
+    const ctx = document.getElementById(canvasId);
+    if(!ctx) return;
+    
+    // Destruir gráfico anterior de forma segura
+    if(chartRef) {
+      try {
+        chartRef.destroy();
+      } catch(e) {
+        console.log("Error al destruir gráfico comparison CDF:", e);
+      }
+    }
+    
+    // Determinar rango global
+    let xmin=Infinity, xmax=-Infinity;
+    for(const k of Object.keys(allResults)){
+      const r = allResults[k];
+      if(r.resampleMeans && r.resampleMeans.length){
+        xmin = Math.min(xmin, Math.min(...r.resampleMeans));
+        xmax = Math.max(xmax, Math.max(...r.resampleMeans));
+      }else{
+        const m=r.mean, s=Math.sqrt(r.variance);
+        xmin = Math.min(xmin, m-4*s); xmax = Math.max(xmax, m+4*s);
+      }
+    }
+    if(!isFinite(xmin)||!isFinite(xmax)){ xmin=40; xmax=90; }
+    const datasets=[];
+    for(const k of Object.keys(allResults)){
+      const r = allResults[k];
+      let cdfData=[];
+      if(r.resampleMeans && r.resampleMeans.length){
+        const arr = [...r.resampleMeans].sort((a,b)=>a-b);
+        const B = arr.length;
+        for(let i=0;i<B;i++){ cdfData.push({x:arr[i], y:(i+1)/B}); }
+        if(cdfData.length){
+          if(cdfData[0].x>xmin) cdfData.unshift({x:xmin,y:0});
+          if(cdfData[cdfData.length-1].x<xmax) cdfData.push({x:xmax,y:1});
+        }
+      }else{
+        const m=r.mean, s=Math.sqrt(r.variance), step=(xmax-xmin)/120;
+        for(let x=xmin; x<=xmax; x+=step){ cdfData.push({x, y:normalCDF(x,m,s)}); }
+      }
+      const label = methodNames[k] || k;
+      const color = methodColors[k] || 'rgba(0,0,0,.7)';
+      datasets.push({label, data:cdfData, borderColor:color, pointRadius:0, borderWidth:2, fill:false});
+    }
+    
+    // Limpiar el canvas
+    ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    
+    const chartObj = new Chart(ctx,{
+      type:'line',
+      data:{datasets},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        scales:{x:{type:'linear', title:{display:true, text:'Media muestral'}},
+                y:{min:0, max:1.05, title:{display:true, text:'Prob. acumulada'}}},
+        plugins:{legend:{position:'top'}}
+      }
+    });
+    
+    return chartObj;
+  }
+
+  // Plugin línea μ - CORREGIDO
+  const populationMeanLine = {
+    id:'populationMeanLine',
+    afterDraw(chart, args, options){
+      const mu = options && options.mu !== undefined ? options.mu : 65; // Valor por defecto
+      const yAxis = chart.scales.y; 
+      if(!yAxis) return;
+      
+      try {
+        const y = yAxis.getPixelForValue(mu);
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.setLineDash([5,5]);
+        ctx.strokeStyle = 'rgba(75, 192, 192, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(chart.chartArea.left, y);
+        ctx.lineTo(chart.chartArea.right, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(75,192,192,1)';
+        ctx.font = '12px Arial';
+        ctx.fillText(`μ poblacional: ${mu.toFixed(2)}`, chart.chartArea.right-150, y-6);
+        ctx.restore();
+      } catch(e) {
+        console.log("Error en populationMeanLine:", e);
+      }
+    }
+  };
+  Chart.register(populationMeanLine);
+
+  function renderConfidenceIntervals(allResults, params, canvasId, chartRef){
+    const ctx = document.getElementById(canvasId);
+    if(!ctx) return;
+    
+    // Destruir gráfico anterior de forma segura
+    if(chartRef) {
+      try {
+        chartRef.destroy();
+      } catch(e) {
+        console.log("Error al destruir gráfico confidence interval:", e);
+      }
+    }
+    
+    const labels = Object.keys(allResults).map(k=>methodNames[k] || k);
+    const data = Object.keys(allResults).map(k=>{
+      const r = allResults[k];
+      return {y:r.mean, lower:r.confidenceInterval.lower, upper:r.confidenceInterval.upper};
+    });
+    
+    // Limpiar el canvas
+    ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    
+    const chartObj = new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels, 
+        datasets:[{
+          label:'Media', 
+          data:data.map(d=>d.y),
+          backgroundColor: Object.keys(allResults).map(k => methodColors[k] || 'rgba(0,0,0,0.5)')
+        }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        scales:{y:{title:{display:true,text:'Media'}}},
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{
+            label:(ctx)=>{
+              const i=ctx.dataIndex, d=data[i];
+              return [`Media: ${d.y.toFixed(4)}`,
+                      `IC: (${d.lower.toFixed(4)}, ${d.upper.toFixed(4)})`,
+                      `Long.: ${(d.upper-d.lower).toFixed(4)}`];
+            }
+          }}
+        }
+      }
+    });
+    
+    // Dibujar línea de media poblacional manualmente
+    const drawPopulationMeanLine = () => {
+      const chart = chartObj;
+      const yScale = chart.scales.y;
+      const ctx2 = chart.ctx; 
+      
+      const mu = params.populationMean || 65;
+      const y = yScale.getPixelForValue(mu);
+      
+      ctx2.save();
+      ctx2.setLineDash([5,5]);
+      ctx2.strokeStyle = 'rgba(75, 192, 192, 0.8)';
+      ctx2.lineWidth = 2;
+      ctx2.beginPath();
+      ctx2.moveTo(chart.chartArea.left, y);
+      ctx2.lineTo(chart.chartArea.right, y);
+      ctx2.stroke();
+      ctx2.setLineDash([]);
+      ctx2.fillStyle = 'rgba(75,192,192,1)';
+      ctx2.font = '12px Arial';
+      ctx2.fillText(`μ poblacional: ${mu.toFixed(2)}`, chart.chartArea.right-150, y-6);
+      ctx2.restore();
+    };
+    
+    // Dibujar barras de error manualmente
+    const drawErrorBars = ()=>{
+      const chart = chartObj;
+      const yScale = chart.scales.y;
+      const xScale = chart.scales.x;
+      const ctx2 = chart.ctx; 
+      ctx2.save(); 
+      ctx2.strokeStyle='#333';
+      ctx2.lineWidth = 2;
+      
+      for(let i=0;i<data.length;i++){
+        const x = xScale.getPixelForValue(i);
+        const barW = xScale.getPixelForValue(i+0.5)-xScale.getPixelForValue(i)-6;
+        const xc = x + (barW/2);
+        const yLow = yScale.getPixelForValue(data[i].lower);
+        const yUp  = yScale.getPixelForValue(data[i].upper);
+        
+        // Línea vertical
+        ctx2.beginPath(); 
+        ctx2.moveTo(xc, yLow); 
+        ctx2.lineTo(xc, yUp); 
+        ctx2.stroke();
+        
+        // Línea horizontal inferior
+        ctx2.beginPath(); 
+        ctx2.moveTo(xc-6, yLow); 
+        ctx2.lineTo(xc+6, yLow); 
+        ctx2.stroke();
+        
+        // Línea horizontal superior
+        ctx2.beginPath(); 
+        ctx2.moveTo(xc-6, yUp);  
+        ctx2.lineTo(xc+6, yUp);  
+        ctx2.stroke();
+      }
+      ctx2.restore();
+    };
+    
+    // Usar evento para dibujar después de que el gráfico se renderice
+    chartObj.options.animation = {
+      onComplete: function() {
+        drawPopulationMeanLine();
+        drawErrorBars();
+      }
+    };
+    
+    chartObj.update();
+    
+    return chartObj;
+  }
+
+  function renderEfficiencyTable(allResults, tbodyId){
+    const body = document.getElementById(tbodyId);
+    if(!body) return;
+    
+    body.innerHTML='';
+    const arr = Object.keys(allResults).map(k=>({name:methodNames[k] || k, se: Math.sqrt(allResults[k].variance)}));
+    const minSE = Math.min(...arr.map(o=>o.se));
+    for(const o of arr){
+      const tr = document.createElement('tr');
+      if(o.se===minSE) tr.classList.add('table-success');
+      const eff = (minSE/o.se)*100;
+      tr.innerHTML = `<td><strong>${o.name}</strong></td><td>${o.se.toFixed(4)}</td><td>${eff.toFixed(1)}%</td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  function renderTables(allResults, params, advTBodyId, cmpTBodyId){
+    const adv = document.getElementById(advTBodyId);
+    const cmp = document.getElementById(cmpTBodyId);
+    if(!adv || !cmp) return;
+    
+    adv.innerHTML=''; cmp.innerHTML='';
+    const mu = params.populationMean;
+
+    // Por método
+    for(const k of Object.keys(allResults)){
+      const r = allResults[k];
+      const covers = (mu>=r.confidenceInterval.lower && mu<=r.confidenceInterval.upper) ? 'Sí' : 'No';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><strong>${methodNames[k] || k}</strong></td>
+        <td>${r.mean.toFixed(4)}</td>
+        <td>${r.stdError.toFixed(4)}</td>
+        <td>${r.cv.toFixed(2)}%</td>
+        <td>(${r.confidenceInterval.lower.toFixed(2)}, ${r.confidenceInterval.upper.toFixed(2)})</td>
+        <td>${covers}</td>`;
+      adv.appendChild(tr);
+    }
+
+    // Comparativas: CV, longitud de IC, sesgo, MSE
+    const makeRow = (label, fn)=> {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td>` +
+        Object.keys(allResults).map(k=>`<td>${fn(allResults[k])}</td>`).join('');
+      cmp.appendChild(tr);
+    };
+    makeRow('CV (%)', r => r.cv.toFixed(2)+'%');
+    makeRow('Long. IC', r => (r.confidenceInterval.upper - r.confidenceInterval.lower).toFixed(4));
+    makeRow('Sesgo',    r => (r.mean - mu).toFixed(4));
+    makeRow('MSE',      r => ((r.mean - mu)**2 + r.variance).toFixed(6));
+  }
+
+  // ===== Generate & Render Pestaña 1 =====
+  function generateAndRenderEstratos(){
+    const params = {
+      n: parseInt(sampleSizeSlider.value),
+      numStrata: parseInt(numStrataSlider.value),
+      populationMean: parseFloat(populationMeanSlider.value),
+      populationStdDev: parseFloat(populationStdDevSlider.value),
+      stratumEffect: parseFloat(stratumEffectSlider.value),
+      confidenceLevel: parseInt(confidenceLevelSlider.value),
+      useWeights: useWeightsCheckbox.checked,
+      numResamples: parseInt(numResamplesSlider.value)
+    };
+    const sample = generateSampleEstratos(params);
+    
+    // tablas y básicos
+    renderSampleTable(sample);
+    renderDataHistogram(sample);
+    renderCDFSampleVsTheoretical(sample);
+    
+    // resultados
+    const allResults = computeAllEstratos(sample, params);
+    renderTables(allResults, params, 'advancedMetricsTableBody', 'comparisonMetricsTableBody');
+    
+    // Gráficos
+    charts.estratos.confidenceInterval = renderConfidenceIntervals(allResults, params, 'confidenceIntervalChart', charts.estratos.confidenceInterval);
+    renderEfficiencyTable(allResults, 'efficiencyTableBody');
+    charts.estratos.comparisonCdf = renderComparisonCDF(allResults, 'comparisonCdfChart', charts.estratos.comparisonCdf);
+    
+    // histogramas de remuestreo
+    const ctxB = document.getElementById('resampleChartBootstrap');
+    const ctxJ = document.getElementById('resampleChartJackknife');
+    
+    if(ctxB) {
+      if(charts.estratos.resampleBootstrap) {
+        try {
+          charts.estratos.resampleBootstrap.destroy();
+        } catch(e) {
+          console.log("Error al destruir gráfico bootstrap:", e);
+        }
+      }
+      const bH = createHistogramBins(allResults.bootstrap.resampleMeans, 15);
+      ctxB.getContext('2d').clearRect(0, 0, ctxB.width, ctxB.height);
+      charts.estratos.resampleBootstrap = new Chart(ctxB,{
+        type:'bar', 
+        data:{labels:bH.labels, datasets:[{label:'Frecuencia', data:bH.counts, backgroundColor:'rgba(255, 205, 86, 0.7)'}]},
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+    
+    if(ctxJ) {
+      if(charts.estratos.resampleJackknife) {
+        try {
+          charts.estratos.resampleJackknife.destroy();
+        } catch(e) {
+          console.log("Error al destruir gráfico jackknife:", e);
+        }
+      }
+      const jH = createHistogramBins(allResults.jackknife.resampleMeans, 15);
+      ctxJ.getContext('2d').clearRect(0, 0, ctxJ.width, ctxJ.height);
+      charts.estratos.resampleJackknife = new Chart(ctxJ,{
+        type:'bar', 
+        data:{labels:jH.labels, datasets:[{label:'Frecuencia', data:jH.counts, backgroundColor:'rgba(75, 192, 192, 0.7)'}]},
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+      });
+    }
+  }
+
+  // ==================== PESTAÑA 2 (PSU): generación, cálculo y render ====================
+  // Hadamard (orden 1,2,4,8,16,...)
+  function hadamard(n){
+    if(n===1) return [[1]];
+    const H = hadamard(n/2);
+    const top = H.map(row => row.concat(row));
+    const bottom = H.map(row => row.concat(row.map(x=>-x)));
+    return top.concat(bottom);
+  }
+
+  function generatePSUSample(params){
+    const out = [];
+    for(let h=1; h<=params.numStrata; h++){
+      const mu_h = params.mu + (h - (params.numStrata-1)/2 - 1)*params.stratumEffect;
+      for(let p=1; p<=params.psusPerStratum; p++){
+        const nh = Math.max(5, Math.round(normalRandom(params.clusterSize, Math.max(2, params.clusterSize*0.1))));
+        const sigma2 = params.sigma*params.sigma;
+        const sb2 = sigma2 * params.rho;
+        const sw2 = sigma2 * (1 - params.rho);
+        const u_hp = normalRandom(0, Math.sqrt(sb2));
+        for(let i=0;i<nh;i++){
+          const e = normalRandom(0, Math.sqrt(sw2));
+          const y = mu_h + u_hp + e;
+          const w = params.useWeights ? 1.0 : 1.0;
+          out.push({id: out.length+1, stratum:h, psu:p, y, weight:w});
+        }
+      }
+    }
+    return out;
+  }
+
+  function aggregateByPSU(rows){
+    const key = (h,p)=>`${h}::${p}`;
+    const map = new Map();
+    for(const r of rows){
+      const k = key(r.stratum, r.psu);
+      if(!map.has(k)) map.set(k, {stratum:r.stratum, psu:r.psu, sumw:0, sumwy:0, n:0});
+      const o = map.get(k);
+      o.sumw += r.weight; o.sumwy += r.weight*r.y; o.n += 1;
+    }
+    return Array.from(map.values()).map(o => ({
+      stratum:o.stratum, psu:o.psu, mean: o.sumwy/(o.sumw||1), n: o.n, sumw:o.sumw
+    }));
+  }
+
+  function computeAllPSU(sample, params){
+    const z = approxZ(params.CL);
+    const ybar = (arr)=> arr.reduce((a,d)=>a+d.y,0)/arr.length;
+
+    const n = sample.length;
+    const mean_simple = ybar(sample);
+    const ss = sample.reduce((a,d)=>a+Math.pow(d.y-mean_simple,2),0);
+    const var_simple = ss/(n*(n-1));
+    const se_simple = Math.sqrt(var_simple);
+    const ci_simple = {lower:mean_simple - z*se_simple, upper:mean_simple + z*se_simple};
+    const cv_simple = (se_simple/mean_simple)*100;
+
+    const psuAgg = aggregateByPSU(sample);
+    const byH = new Map();
+    psuAgg.forEach(r=>{ if(!byH.has(r.stratum)) byH.set(r.stratum, []); byH.get(r.stratum).push(r);});
+    
+    let totalW=0, sumWY=0;
+    for(const arr of byH.values()){
+      const Wh = arr.reduce((a,d)=>a+d.sumw,0);
+      const yh = arr.reduce((a,d)=>a+d.mean*d.sumw,0)/(Wh||1);
+      totalW += Wh; sumWY += yh*Wh;
+    }
+    const mean_taylorPSU = sumWY/(totalW||1);
+    let var_taylorPSU = 0;
+    for(const arr of byH.values()){
+      const m = arr.length;
+      if(m<2){ continue; }
+      const Wh = arr.reduce((a,d)=>a+d.sumw,0);
+      const yh = arr.reduce((a,d)=>a+d.mean*d.sumw,0)/(Wh||1);
+      const s2 = arr.reduce((a,d)=>a + Math.pow(d.mean - yh,2), 0)/(m-1);
+      const Sh = Wh/(totalW||1);
+      var_taylorPSU += Math.pow(Sh,2) * (s2/m);
+    }
+    const se_taylorPSU = Math.sqrt(var_taylorPSU);
+    const ci_taylorPSU = {lower:mean_taylorPSU - z*se_taylorPSU, upper:mean_taylorPSU + z*se_taylorPSU};
+    const cv_taylorPSU = (se_taylorPSU/mean_taylorPSU)*100;
+
+    const B = params.B;
+    const bootMeans = new Array(B);
+    for(let b=0;b<B;b++){
+      let totalWb=0, sumWYb=0;
+      for(const [h, arr] of byH.entries()){
+        const m=arr.length;
+        let Whb=0, sumh=0;
+        for(let j=0;j<m;j++){
+          const pick = arr[Math.floor(Math.random()*m)];
+          Whb += pick.sumw; sumh += pick.mean*pick.sumw;
+        }
+        const yh = sumh/(Whb||1);
+        totalWb += Whb; sumWYb += yh*Whb;
+      }
+      bootMeans[b] = sumWYb/(totalWb||1);
+    }
+    const mean_boot = bootMeans.reduce((a,m)=>a+m,0)/B;
+    const var_boot = bootMeans.reduce((a,m)=>a+Math.pow(m-mean_boot,2),0)/(B-1);
+    const se_boot = Math.sqrt(var_boot);
+    const ci_boot = {lower:mean_boot - z*se_boot, upper:mean_boot + z*se_boot};
+    const cv_boot = (se_boot/mean_boot)*100;
+
+    let brrMeans = [];
+    let mean_brr=NaN, var_brr=NaN, se_brr=NaN, ci_brr={lower:NaN,upper:NaN}, cv_brr=NaN;
+    const allHave2 = Array.from(byH.values()).every(arr=>arr.length===2);
+    if(allHave2){
+      const Hrows = byH.size;
+      let k=1, order=2;
+      while(order < Hrows){ k++; order *= 2; if(k>10) break; }
+      const H = hadamard(order);
+      const strataList = Array.from(byH.keys()).sort((a,b)=>a-b);
+      const replicates = order;
+      for(let r=0;r<replicates;r++){
+        let totalWr=0, sumWYr=0;
+        for(let idx=0; idx<Hrows; idx++){
+          const sign = H[idx][r];
+          const h = strataList[idx];
+          const arr = byH.get(h);
+          const pick = (sign===1) ? arr[0] : arr[1];
+          const Wh = pick.sumw*2;
+          const yh = pick.mean;
+          totalWr += Wh; sumWYr += yh*Wh;
+        }
+        brrMeans.push(sumWYr/(totalWr||1));
+      }
+      mean_brr = brrMeans.reduce((a,m)=>a+m,0)/brrMeans.length;
+      var_brr = brrMeans.reduce((a,m)=>a+Math.pow(m-mean_brr,2),0)/(brrMeans.length);
+      se_brr = Math.sqrt(var_brr);
+      ci_brr = {lower: mean_brr - z*se_brr, upper: mean_brr + z*se_brr};
+      cv_brr = (se_brr/mean_brr)*100;
+    }
+
+    const out = {
+      simple:   {mean:mean_simple,     variance:var_simple,   stdError:se_simple,   confidenceInterval:ci_simple,   cv:cv_simple,   resampleMeans:[]},
+      'taylor-psu': {mean:mean_taylorPSU, variance:var_taylorPSU,stdError:se_taylorPSU, confidenceInterval:ci_taylorPSU, cv:cv_taylorPSU, resampleMeans:[]},
+      'bootstrap-psu':{mean:mean_boot,   variance:var_boot,    stdError:se_boot,     confidenceInterval:ci_boot,     cv:cv_boot,     resampleMeans:bootMeans}
+    };
+    if(allHave2){
+      out['brr'] = {mean:mean_brr, variance:var_brr, stdError:se_brr, confidenceInterval:ci_brr, cv:cv_brr, resampleMeans:brrMeans};
+    }
+    return {results:out, brrOk:allHave2};
+  }
+
+  function renderPSUSampleTable(data){
+    psuSampleTableBody.innerHTML='';
+    for(const r of data.slice(0,30)){
+      const c = stratumColors[r.stratum-1];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id}</td>
+        <td><span class="strata-indicator" style="background:${c}"></span>${r.stratum}</td>
+        <td>${r.psu}</td>
+        <td>${r.y.toFixed(2)}</td>
+        <td>${r.weight.toFixed(2)}</td>`;
+      psuSampleTableBody.appendChild(tr);
+    }
+  }
+  
+  function renderPSUHistogram(data){
+    const ctx = document.getElementById('psuDataHistogram');
+    if(!ctx) return;
+    
+    // Destruir gráfico anterior de forma segura
+    if(charts.psu.dataHistogram) {
+      try {
+        charts.psu.dataHistogram.destroy();
+      } catch(e) {
+        console.log("Error al destruir gráfico PSU histogram:", e);
+      }
+      charts.psu.dataHistogram = null;
+    }
+    
+    const vals = data.map(d=>d.y);
+    const H = createHistogramBins(vals, 15);
+    
+    // Limpiar el canvas
+    ctx.getContext('2d').clearRect(0, 0, ctx.width, ctx.height);
+    
+    charts.psu.dataHistogram = new Chart(ctx,{
+      type:'bar',
+      data:{labels:H.labels, datasets:[{label:'Frecuencia', data:H.counts, backgroundColor:'rgba(153, 102, 255, 0.7)'}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+  }
+  
+  function renderPSUResampleCharts(allResults){
+    const ctxB = document.getElementById('psuResampleChartBootstrap');
+    const ctxR = document.getElementById('psuBRRChart');
+    
+    if(ctxB) {
+      if(charts.psu.resampleBootstrap) {
+        try {
+          charts.psu.resampleBootstrap.destroy();
+        } catch(e) {
+          console.log("Error al destruir gráfico PSU bootstrap:", e);
+        }
+      }
+      if(allResults['bootstrap-psu'] && allResults['bootstrap-psu'].resampleMeans.length){
+        const bH = createHistogramBins(allResults['bootstrap-psu'].resampleMeans, 15);
+        ctxB.getContext('2d').clearRect(0, 0, ctxB.width, ctxB.height);
+        charts.psu.resampleBootstrap = new Chart(ctxB,{
+          type:'bar', 
+          data:{labels:bH.labels, datasets:[{label:'Frecuencia', data:bH.counts, backgroundColor:'rgba(255, 205, 86, 0.7)'}]},
+          options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+        });
+      }
+    }
+
+    if(ctxR) {
+      if(charts.psu.brr) {
+        try {
+          charts.psu.brr.destroy();
+        } catch(e) {
+          console.log("Error al destruir gráfico BRR:", e);
+        }
+      }
+      if(allResults['brr'] && allResults['brr'].resampleMeans.length){
+        const rH = createHistogramBins(allResults['brr'].resampleMeans, 15);
+        ctxR.getContext('2d').clearRect(0, 0, ctxR.width, ctxR.height);
+        charts.psu.brr = new Chart(ctxR,{
+          type:'bar', 
+          data:{labels:rH.labels, datasets:[{label:'Frecuencia', data:rH.counts, backgroundColor:'rgba(153, 102, 255, 0.7)'}]} ,
+          options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+        });
+      } else {
+        ctxR.getContext('2d').clearRect(0, 0, ctxR.width, ctxR.height);
+        charts.psu.brr = new Chart(ctxR,{
+          type:'bar', 
+          data:{labels:['Sin datos BRR'], datasets:[{label:'Frecuencia', data:[0], backgroundColor:'rgba(200, 200, 200, 0.7)'}]} ,
+          options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}
+        });
+      }
+    }
+  }
+
+  function renderPSUTablesAndCharts(out, params){
+    const {results, brrOk} = out;
+    const orderedKeys = brrOk ? ['simple','taylor-psu','bootstrap-psu','brr'] : ['simple','taylor-psu','bootstrap-psu'];
+    const resultsOrdered = {};
+    orderedKeys.forEach(k=>resultsOrdered[k]=results[k]);
+
+    const adv = document.getElementById('psuAdvancedMetricsTableBody');
+    const cmp = document.getElementById('psuComparisonMetricsTableBody');
+    if(!adv || !cmp) return;
+    
+    adv.innerHTML='';
+    for(const k of Object.keys(resultsOrdered)){
+      const r = resultsOrdered[k];
+      const covers = (params.mu >= r.confidenceInterval.lower && params.mu <= r.confidenceInterval.upper) ? 'Sí':'No';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><strong>${methodNames[k] || k}</strong></td>
+        <td>${r.mean.toFixed(4)}</td>
+        <td>${r.stdError.toFixed(4)}</td>
+        <td>${r.cv.toFixed(2)}%</td>
+        <td>(${r.confidenceInterval.lower.toFixed(2)}, ${r.confidenceInterval.upper.toFixed(2)})</td>
+        <td>${covers}</td>`;
+      adv.appendChild(tr);
+    }
+    
+    cmp.innerHTML='';
+    const makeRow = (label, fn)=> {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td>` + orderedKeys.map(k=>`<td>${fn(resultsOrdered[k])}</td>`).join('');
+      cmp.appendChild(tr);
+    };
+    makeRow('CV (%)', r => r.cv.toFixed(2)+'%');
+    makeRow('Long. IC', r => (r.confidenceInterval.upper - r.confidenceInterval.lower).toFixed(4));
+    makeRow('Sesgo',    r => (r.mean - params.mu).toFixed(4));
+    makeRow('MSE',      r => ((r.mean - params.mu)**2 + r.variance).toFixed(6));
+
+    charts.psu.confidenceInterval = renderConfidenceIntervals(resultsOrdered, {populationMean: params.mu}, 'psuConfidenceIntervalChart', charts.psu.confidenceInterval);
+    renderEfficiencyTable(resultsOrdered, 'psuEfficiencyTableBody');
+    charts.psu.comparisonCdf = renderComparisonCDF(resultsOrdered, 'psuComparisonCdfChart', charts.psu.comparisonCdf);
+
+    brrOmittedMsg.classList.toggle('d-none', brrOk);
+  }
+
+  function generateAndRenderPSU(){
+    const params = {
+      numStrata: parseInt(psuNumStrata.value),
+      psusPerStratum: parseInt(psuPerStratum.value),
+      clusterSize: parseInt(psuClusterSize.value),
+      rho: parseFloat(psuRho.value),
+      mu: parseFloat(psuMu.value),
+      sigma: parseFloat(psuSigma.value),
+      stratumEffect: parseFloat(psuStratumEffect.value),
+      useWeights: psuUseWeights.checked,
+      CL: parseInt(psuCL.value),
+      B: parseInt(psuB.value)
+    };
+    
+    brrReqNote.classList.toggle('d-none', params.psusPerStratum===2);
+
+    const sample = generatePSUSample(params);
+    renderPSUSampleTable(sample);
+    renderPSUHistogram(sample);
+
+    const out = computeAllPSU(sample, params);
+    renderPSUTablesAndCharts(out, params);
+    renderPSUResampleCharts(out.results);
+  }
+
+  // Inicializaciones
+  updateSliderLabels();
+  updatePSULabels();
+  generateAndRenderEstratos();
+  generateAndRenderPSU();
+});
+</script>
+</body>
+</html>
